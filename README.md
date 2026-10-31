@@ -1,6 +1,6 @@
 # Farol Kiosk
 
-**Farol Kiosk** é um launcher Android (Kotlin) para **TV Box** em modo quiosque: substitui a tela inicial, exibe um painel web em tela cheia e protege o acesso às configurações com **PIN opcional**. Projeto legado no contexto acadêmico da **FATEC**.
+**Farol Kiosk** é um launcher Android nativo em Kotlin para **TV Box** e dispositivos de sinalização digital em modo quiosque: substitui a tela inicial, exibe um painel web em tela cheia e protege o acesso às configurações com **PIN opcional**.
 
 | | |
 |---|---|
@@ -23,7 +23,7 @@
 8. [Definir launcher padrão](#definir-launcher-padrão)
 9. [Segurança e PIN](#segurança-e-pin)
 10. [Depuração (Logcat)](#depuração-logcat)
-11. [Painel web (Netlify / FATEC)](#painel-web-netlify--fatec)
+11. [Painel web (Netlify)](#painel-web-netlify)
 12. [Build e release](#build-e-release)
 13. [Publicar no GitHub](#publicar-no-github)
 14. [Estrutura do código](#estrutura-do-código)
@@ -33,21 +33,21 @@
 
 ## Para quem é este projeto
 
-- **Operador / instituição**: instalar APK, configurar URL do painel e deixar a TV Box fixa no conteúdo.
+- **Operador / administrador**: instalar APK, configurar URL do painel e fixar a TV Box no conteúdo de exibição.
 - **Desenvolvedor**: clonar, compilar, depurar WebView e evoluir o app.
-- **Equipe acadêmica (FATEC)**: base versionada para quiosques e painéis digitais.
+- **Equipe técnica**: base versionada e limpa para implantação de quiosques e painéis digitais.
 
 ---
 
 ## Funcionalidades
 
-- Launcher **HOME** + entrada **LAUNCHER** (útil em desenvolvimento)
-- **WebView** fullscreen, modo imersivo, links abertos dentro do app
-- **SharedPreferences**: `kiosk_url`, `kiosk_pin`
-- **Settings**: URL, PIN, *Salvar e Iniciar Kiosk*, *Abrir Configurações do Android*, *Mudar Launcher Padrão*
-- **PIN opcional** com diálogo de aviso se iniciar sem PIN
-- **Gatilhos** para abrir configurações (com PIN, se configurado)
-- **Performance TV Box**: `largeHeap`, GPU, logs de rede/JS (`KioskWebView`)
+- Launcher **HOME** + entrada padrão de aplicativo (útil em desenvolvimento)
+- **WebView** fullscreen, modo imersivo, links internos mantidos no app
+- **SharedPreferences**: persistência local de `kiosk_url` e `kiosk_pin`
+- **Settings**: painel de configuração com identidade visual, gerenciamento de URL/PIN, botão de atalho para configurações nativas do Android e seletor de launcher padrão
+- **PIN flexível com Alerta de Segurança**: opcional (vazio por padrão), exibindo um diálogo de confirmação caso o técnico tente iniciar o modo kiosk sem proteção por senha
+- **Gatilhos de administrador**: múltiplos métodos para retornar às configurações protegidas por PIN
+- **Performance para TV Box**: suporte a `largeHeap`, aceleração de hardware e logs dedicados de rede/JS (`KioskWebView`)
 
 ---
 
@@ -65,19 +65,18 @@
 
 ### Rede
 
-- Internet na TV Box para carregar o painel (permissão `INTERNET` já declarada)
-- URLs **HTTP** permitidas via `usesCleartextTraffic` (ajuste para produção se usar só HTTPS)
+- Conexão de rede ativa na TV Box para carregar o painel web (permissão `INTERNET` declarada)
+- Suporte a tráfego HTTP via `usesCleartextTraffic` (ajuste para HTTPS em produção)
 
 ---
 
 ## Guia rápido (usuário final)
 
 1. Instale o APK na TV Box (veja [Instalar na TV Box](#instalar-na-tv-box-adb)).
-2. Abra **Farol Kiosk**.
-3. Informe a **URL** do painel e, se quiser, um **PIN** (mín. 4 dígitos).
+2. Abra o aplicativo **Farol Kiosk**.
+3. Insira a **URL** do painel web e, caso deseje proteger o acesso, defina um **PIN** (mín. 4 dígitos). Deixe em branco se preferir sem senha.
 4. Toque em **Salvar e Iniciar Kiosk**.
-5. Quando o Android perguntar, escolha **Farol Kiosk** como **Tela inicial** → **Sempre**  
-   (ou use **Mudar Launcher Padrão** nas configurações do app).
+5. Quando o sistema Android perguntar, selecione **Farol Kiosk** como **Tela inicial** → **Sempre** (ou utilize o botão de **Mudar Launcher Padrão** nas configurações do app).
 
 ---
 
@@ -90,26 +89,26 @@ git clone https://github.com/SEU_USUARIO/farol-kiosk.git
 cd farol-kiosk
 ```
 
-Substitua a URL pelo repositório real após criar no GitHub.
+Substitua a URL pelo link real do seu repositório no GitHub.
 
 ### 2. Abrir o projeto
 
 1. Android Studio → **File → Open**
-2. Selecione a pasta raiz do projeto (onde está `settings.gradle.kts`)
-3. Aguarde **Gradle Sync** (primeira vez pode baixar dependências)
+2. Selecione a pasta raiz do projeto (onde está o arquivo `settings.gradle.kts`)
+3. Aguarde a sincronização do **Gradle**
 
-> Não commite `local.properties` (caminho do SDK); ele já está no `.gitignore`.
+> *Nota:* O arquivo `local.properties` (que contém caminhos locais do SDK) é ignorado automaticamente pelo `.gitignore`.
 
 ### 3. Executar
 
-- Conecte TV Box via USB (depuração USB) ou use emulador **TV / Tablet landscape**
-- **Run** ▶ ou:
+- Conecte a TV Box via ADB ou utilize um emulador configurado em orientação paisagem (Landscape).
+- Execute o projeto pelo ícone **Run** ▶ ou via terminal:
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-APK gerado:
+O APK de debug será gerado em:
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
@@ -125,24 +124,24 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Instalar na TV Box (ADB)
 
-### USB
+### Via USB
 
-1. Ative **Opções do desenvolvedor** e **Depuração USB** na box.
-2. Conecte ao PC e confira:
+1. Ative as **Opções do desenvolvedor** e a **Depuração USB** nas configurações da TV Box.
+2. Conecte o dispositivo ao computador e verifique a conexão:
 
 ```bash
 adb devices
 ```
 
-3. Instale ou atualize:
+3. Instale ou atualize o pacote:
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Wi-Fi (sem cabo)
+### Via Wi-Fi (sem cabos)
 
-Na box (com USB uma vez, ou se já tiver depuração Wi-Fi):
+Estando com o dispositivo conectado via USB ao menos uma vez (ou com ADB por rede ativado):
 
 ```bash
 adb tcpip 5555
@@ -156,163 +155,138 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 | Campo | Descrição |
 |--------|-----------|
-| **URL do quiosque** | Endereço completo (`https://...`) do painel web |
-| **PIN** | Opcional; vazio = aviso de segurança antes de iniciar |
+| **URL do quiosque** | Endereço web completo (`https://...`) do painel de exibição |
+| **PIN** | Opcional; se mantido em branco, exige confirmação via alerta |
 
-Valores gravados localmente (`kiosk_prefs`). Exemplo de URL institucional no helper da tela: `https://www.fatecsp.br/`.
+Valores gravados localmente em `kiosk_prefs`.
 
 ### Sem URL na primeira execução
 
-Se não houver URL salva, o app abre **Configurações** automaticamente.
+Caso nenhuma URL esteja salva ao abrir o app pela primeira vez, o painel de configurações é aberto automaticamente.
 
-### Alterar URL ou PIN depois
+### Alterar URL ou PIN posteriormente
 
-Use os [gatilhos de administrador](#segurança-e-pin) → digite o PIN (se houver) → **Configurações**.
+Utilize um dos [gatilhos de administrador](#segurança-e-pin) para acessar as configurações.
 
 ---
 
 ## Definir launcher padrão
 
-### Pelo app
+### Pelo aplicativo
 
-**Configurações** → **Mudar Launcher Padrão** (abre `ACTION_HOME_SETTINGS`; fallback para configurações gerais em boxes customizadas).
+Acesse **Configurações** → **Mudar Launcher Padrão** (dispara `ACTION_HOME_SETTINGS` para o seletor nativo do sistema).
 
-### Pelo ADB
+### Pelo terminal (ADB)
 
 ```bash
 adb shell cmd package set-home-activity com.kiosk.launcher/.MainActivity
 ```
 
-### Voltar ao launcher original
+### Reverter para o launcher original
 
-Use **Mudar Launcher Padrão** ou **Configurações → Apps → Launcher padrão** e escolha outro app.
+Utilize o seletor nativo do sistema em **Configurações → Aplicativos → Início (Home)** e altere para o launcher original da box.
 
 ---
 
 ## Segurança e PIN
 
-### Com PIN (recomendado em produção)
+### Com PIN configurado (Recomendado)
 
-Mínimo **4 dígitos**. Para acessar **Configurações** a partir do kiosk:
+Requer mínimo de **4 dígitos**. Para desbloquear o acesso às configurações a partir do modo kiosk:
 
 | Gatilho | Ação |
 |--------|------|
-| **Swipe** | Arraste rápido da **borda esquerda** para a **direita** no WebView |
-| **OK / Enter** | **7** pressões em **2 segundos** |
-| **Home** | **7** reaberturas do launcher em **2 segundos** (`onNewIntent`) |
-| **Voltar** | **7** pressões em **2 segundos** |
+| **Swipe** | Deslize rápido da **borda esquerda** para a **direita** sobre o WebView |
+| **OK / Enter** | Pressionar a tecla **OK** 7 vezes em até 2 segundos |
+| **Home** | Reabrir o launcher 7 vezes em até 2 segundos (`onNewIntent`) |
+| **Voltar** | Pressionar a tecla **Voltar** 7 vezes em até 2 segundos |
 
-Digite o PIN correto no diálogo → abre **Configurações**.
+Após o gatilho, insira o PIN correto no modal para abrir as configurações.
 
-### Sem PIN
+### Sem PIN (Modo Flexível)
 
-Os gatilhos abrem **Configurações** diretamente. Use só em ambiente controlado.
+Se o campo de PIN estiver vazio, os gatilhos abrem a tela de configurações diretamente. 
 
-Ao salvar com PIN vazio, o app exibe um **AlertDialog** de confirmação antes de iniciar o kiosk.
+Ao tentar salvar sem PIN, o app exibe um **AlertDialog** de confirmação alertando que a segurança do quiosque ficará comprometida.
 
 ### Limitações do Android
 
-Tecla **Home** do sistema não é interceptável como tecla normal; o app usa reabertura do launcher como contagem. Bloqueio total (impossível sair) exige **Device Owner / Lock Task Mode** ou MDM — fora do escopo desta v1.0.
+A tecla nativa **Home** não pode ser interceptada diretamente por aplicações comuns de launcher. O bloqueio total absoluto exigiria permissões de *Device Owner* / *Lock Task Mode* via MDM, mantendo-se fora do escopo desta versão para preservar a compatibilidade universal com boxes genéricas.
 
 ---
 
 ## Depuração (Logcat)
 
-1. Box conectada: `adb devices`
-2. Android Studio → **Logcat**
-3. Filtro:
+1. Com a box conectada, filtre os logs no Android Studio:
 
 ```text
 tag:KioskWebView
 ```
 
-| Log | Significado |
-|-----|-------------|
-| `Erro de carregamento:` | Falha de rede (ex.: OOM, conexão abortada) |
-| `Erro HTTP:` | Status HTTP (404, 503, …) |
-| Console JS | Erros do painel web |
-
-Se **não** houver erros e imagens/conteúdo pararem na TV Box, otimize o **frontend** (tamanho de imagens, lazy load).
+| Log exibido | Significado |
+|-------------|-------------|
+| `Erro de carregamento:` | Falha de rede, abortamento ou estouro de memória (OOM) |
+| `Erro HTTP:` | Códigos de status de erro do servidor (404, 503, etc.) |
+| Console JS | Erros internos reportados pelos scripts da página web |
 
 ---
 
-## Painel web (Netlify / FATEC)
+## Painel web (Netlify)
 
-Recomendações para boxes com pouca RAM:
+Recomendações essenciais para desempenho otimizado em hardware limitado de TV Boxes:
 
-- Imagens até **1920×1080**, preferir **WebP**
-- Evitar carregar muitas imagens pesadas de uma vez; usar **preload sequencial**
-- Testar no Logcat ao reproduzir o problema
+- Utilizar dimensões máximas de **1920×1080 pixels**
+- Dar preferência absoluta ao formato **WebP** com arquivos leves (<300 KB)
+- Evitar carregamento simultâneo massivo de mídias pesadas (recomenda-se script de pré-carregamento sequencial)
 
 ---
 
 ## Build e release
 
-### Debug (testes)
+### Versão Debug (Testes)
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-### Release (distribuição)
+### Versão Release (Produção)
 
-1. Crie um keystore (uma vez):
+1. Gerar chave de assinatura (*Keystore*):
 
 ```bash
 keytool -genkey -v -keystore farol-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias farol
 ```
 
-2. Configure assinatura em `app/build.gradle.kts` (não commite o `.jks` — já ignorado no `.gitignore`).
-3. Gere:
+2. Configurar os parâmetros de assinatura em `app/build.gradle.kts` (o arquivo `.jks` é ignorado no `.gitignore`).
+3. Compilar:
 
 ```bash
 ./gradlew assembleRelease
 ```
 
-Para a **v1.0** acadêmica, o APK **debug** costuma ser suficiente; para produção institucional, prefira **release** assinado.
-
 ---
 
 ## Publicar no GitHub
 
-### Checklist antes do push
-
-- [ ] `./gradlew assembleDebug` sem erros
-- [ ] Sem `local.properties`, `.idea/` ou `build/` no commit
-- [ ] README com URL do repositório atualizada
-- [ ] (Opcional) Screenshots em `docs/screenshots/` para enriquecer o README
-
-### Primeiro upload
+### Primeiro upload via Git
 
 ```bash
 cd farol-kiosk
 git init
 git add .
 git status
-git commit -m "Release inicial: Farol Kiosk v1.0"
+git commit -m "feat: initial release of Farol Kiosk app"
 git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/farol-kiosk.git
 git push -u origin main
 ```
 
-### Release v1.0.0 (recomendado)
+### Publicar Release v1.0.0 no GitHub
 
-No GitHub: **Releases → Draft a new release**
-
+Na aba **Releases** do seu repositório:
 - **Tag:** `v1.0.0`
 - **Title:** Farol Kiosk 1.0.0 — primeira versão
-- **Description:** copie de [CHANGELOG.md](CHANGELOG.md)
-- **Anexo:** `app-debug.apk` (ou APK release assinado)
-
-### Deixar o repositório “apresentável”
-
-- **About** (lado direito): descrição curta + topics: `android`, `kotlin`, `kiosk`, `android-tv`, `webview`, `fatec`
-- **Website:** URL do painel demo, se houver
-- Adicione 2–3 screenshots (configurações + kiosk) na pasta `docs/screenshots/` e referencie no README:
-
-```markdown
-![Tela de configurações](docs/screenshots/settings.png)
-```
+- **Anexo:** O arquivo binário `app-debug.apk` direto (sem compactar em ZIP).
 
 ---
 
@@ -320,34 +294,23 @@ No GitHub: **Releases → Draft a new release**
 
 ```text
 app/src/main/java/com/kiosk/launcher/
-├── MainActivity.kt          # Kiosk, WebView, gatilhos, logs
-├── SettingsActivity.kt      # Configurações e alertas
-├── KioskPreferences.kt      # URL e PIN
-├── PinUnlockDialog.kt       # Modal de PIN
-└── RapidPressCounter.kt     # Contagem 7× / 2s
-
-app/src/main/res/
-├── layout/                  # activity_main, activity_settings, dialog_pin
-├── drawable-nodpi/          # brand_logo, ícones adaptativos
-└── mipmap-*/                # ic_launcher (WebP)
+├── MainActivity.kt          # Lógica do WebView, modo kiosk e gatilhos
+├── SettingsActivity.kt      # Tela de configurações e validações
+├── KioskPreferences.kt      # Gerenciador de SharedPreferences (URL/PIN)
+└── PinUnlockDialog.kt       # Modal de desbloqueio por PIN
 ```
-
-Histórico de versões: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## Solução de problemas
 
-| Problema | O que fazer |
-|----------|-------------|
-| App não vira launcher | **Mudar Launcher Padrão** ou ADB `set-home-activity` |
-| Tela branca / sem rede | Confirme URL, Wi-Fi da box, Logcat `KioskWebView` |
-| Só parte das imagens carrega | Logcat + otimizar imagens/JS no site |
-| Esqueci o PIN | Limpar dados do app: **Configurações Android → Apps → Farol Kiosk → Armazenamento → Limpar dados** (reconfigura URL/PIN) |
-| Gradle sync falha | JDK 17, Android SDK 35, internet para dependências |
+| Problema | Solução |
+|----------|---------|
+| O app não assume como launcher | Utilizar o botão **Mudar Launcher Padrão** nas configurações ou o comando ADB `set-home-activity` |
+| Tela branca / sem carregamento | Validar conectividade de rede da box e filtrar o Logcat com `tag:KioskWebView` |
+| Imagens não carregam | Reduzir o peso e resolução dos arquivos WebP no painel web hospedado |
+| PIN esquecido / bloqueado | Limpar dados do app via Configurações do Android → Aplicativos → Farol Kiosk → Armazenamento → Limpar dados |
 
 ---
 
-**FATEC** — Farol Kiosk, apoio a painéis digitais e experiências em TV Box.
-
-Uso educacional e operacional em quiosques; avalie a política de segurança da sua unidade antes de implantar **sem PIN** em área pública.
+**Farol Kiosk** — Solução leve e segura para sinalização digital e exibições dedicadas em Android TV Box.
