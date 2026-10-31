@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Farol Kiosk</string>
+
+    <string name="settings_brand">Farol Kiosk</string>
+    <string name="settings_subtitle">Modo quiosque para TV Box</string>
+    <string name="settings_title">Configurações</string>
+    <string name="settings_hint_kiosk">Defina a URL exibida no quiosque e, opcionalmente, um PIN para proteger o acesso às configurações.</string>
+    <string name="settings_section_connection">Conexão</string>
+    <string name="settings_section_security">Segurança</string>
+    <string name="settings_url_hint">URL do quiosque</string>
+    <string name="settings_url_helper">Ex.: %1$s</string>
+    <string name="settings_pin_hint">PIN de segurança (opcional)</string>
+    <string name="settings_save_start">Salvar e Iniciar Kiosk</string>
+    <string name="settings_open_android">Abrir Configurações do Android</string>
+    <string name="settings_change_default_launcher">Mudar Launcher Padrão</string>
+    <string name="settings_home_settings_fallback">Menu direto não suportado, abrindo configurações gerais</string>
+    <string name="settings_saved">Configurações salvas</string>
+    <string name="settings_no_pin_warning_message">Você está prestes a iniciar o Modo Kiosk sem um PIN. Isso afetará a segurança do painel, pois qualquer pessoa poderá acessar essas configurações. Tem certeza de que deseja continuar sem PIN?</string>
+    <string name="settings_no_pin_continue">Continuar sem PIN</string>
+    <string name="settings_no_pin_cancel">Cancelar</string>
+    <string name="error_url_required">Informe uma URL válida</string>
+    <string name="error_pin_min_length">PIN deve ter pelo menos 4 dígitos</string>
+
+    <string name="pin_dialog_title">Desbloquear quiosque</string>
+    <string name="pin_dialog_message">Digite o PIN de administrador</string>
+    <string name="pin_dialog_hint">PIN</string>
+    <string name="pin_dialog_confirm">Confirmar</string>
+    <string name="pin_dialog_cancel">Cancelar</string>
+    <string name="pin_incorrect">PIN incorreto</string>
+</resources>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.KioskLauncher" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+        <item name="colorPrimary">@color/settings_accent</item>
+        <item name="colorPrimaryVariant">@color/settings_accent_dark</item>
+        <item name="colorOnPrimary">@android:color/black</item>
+    </style>
+
+    <style name="Theme.KioskLauncher.Fullscreen" parent="Theme.KioskLauncher">
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:ignore="NewApi">shortEdges</item>
+    </style>
+
+    <style name="Theme.KioskLauncher.Settings" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:windowBackground">@color/settings_background</item>
+        <item name="colorPrimary">@color/settings_accent</item>
+        <item name="colorPrimaryVariant">@color/settings_accent_dark</item>
+        <item name="colorOnPrimary">@android:color/black</item>
+        <item name="android:statusBarColor">@color/settings_sidebar</item>
+        <item name="android:navigationBarColor">@color/settings_background</item>
+    </style>
+
+    <style name="ThemeOverlay.KioskLauncher.PinDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="android:background">@color/settings_card</item>
+        <item name="colorSurface">@color/settings_card</item>
+    </style>
+
+    <style name="Widget.KioskLauncher.TextInput" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/settings_accent</item>
+        <item name="hintTextColor">@color/settings_text_secondary</item>
+        <item name="android:textColorHint">@color/settings_text_secondary</item>
+    </style>
+
+    <style name="Widget.KioskLauncher.Button.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/settings_accent</item>
+        <item name="android:textColor">@android:color/black</item>
+    </style>
+
+    <style name="Widget.KioskLauncher.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/settings_divider</item>
+        <item name="android:textColor">@color/settings_text_primary</item>
+    </style>
+</resources>
