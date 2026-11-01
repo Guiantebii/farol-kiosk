@@ -3,6 +3,8 @@ package com.kiosk.launcher
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.GestureDetector
 import android.view.KeyEvent
@@ -32,6 +34,23 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_RELOAD_KIOSK = "extra_reload_kiosk"
         private const val WEBVIEW_LOG_TAG = "KioskWebView"
+        private const val RELOAD_INTERVAL_MS = 30_000L
+        private const val ERROR_PLACEHOLDER_HTML =
+            "<html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>" +
+                "</head><body style=\"margin:0;background:#000000;\"></body></html>"
+    }
+
+    private var kioskInErrorState = false
+    private var lastMainFrameHttpError = false
+    private val reloadHandler = Handler(Looper.getMainLooper())
+    private val reloadWatchdogRunnable = object : Runnable {
+        override fun run() {
+            if (!kioskInErrorState || !::binding.isInitialized) return
+            Log.d(WEBVIEW_LOG_TAG, "Watchdog: tentando recarregar ${preferences.kioskUrl}")
+            lastMainFrameHttpError = false
+            binding.webView.loadUrl(preferences.kioskUrl)
+            reloadHandler.postDelayed(this, RELOAD_INTERVAL_MS)
+        }
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -126,6 +145,16 @@ class MainActivity : AppCompatActivity() {
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                if (url == null || url.startsWith("data:")) return
+                if (kioskInErrorState && !lastMainFrameHttpError) {
+                    clearErrorWatchdog()
+                    Log.d(WEBVIEW_LOG_TAG, "Watchdog: página carregada com sucesso")
+                }
+                lastMainFrameHttpError = false
+            }
+
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
                 request: WebResourceRequest?
@@ -150,11 +179,13 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                if (request == null || error == null) return
+                if (request == null || error == null || !request.isForMainFrame) return
                 Log.e(
                     WEBVIEW_LOG_TAG,
                     "Erro de carregamento: ${request.url} - ${error.description}"
                 )
+                lastMainFrameHttpError = false
+                view?.let { enterKioskErrorState(it) }
             }
 
             override fun onReceivedHttpError(
@@ -163,11 +194,15 @@ class MainActivity : AppCompatActivity() {
                 errorResponse: WebResourceResponse?
             ) {
                 super.onReceivedHttpError(view, request, errorResponse)
-                if (request == null || errorResponse == null) return
+                if (request == null || errorResponse == null || !request.isForMainFrame) return
                 Log.e(
                     WEBVIEW_LOG_TAG,
                     "Erro HTTP: ${request.url} - Status: ${errorResponse.statusCode}"
                 )
+                if (errorResponse.statusCode >= 400) {
+                    lastMainFrameHttpError = true
+                    view?.let { enterKioskErrorState(it) }
+                }
             }
         }
 
@@ -201,6 +236,27 @@ class MainActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
+    }
+
+    private fun enterKioskErrorState(webView: WebView) {
+        if (kioskInErrorState) return
+        kioskInErrorState = true
+        webView.loadDataWithBaseURL(
+            null,
+            ERROR_PLACEHOLDER_HTML,
+            "text/html",
+            Charsets.UTF_8.name(),
+            null
+        )
+        reloadHandler.removeCallbacks(reloadWatchdogRunnable)
+        reloadHandler.postDelayed(reloadWatchdogRunnable, RELOAD_INTERVAL_MS)
+        Log.w(WEBVIEW_LOG_TAG, "Watchdog: estado de erro — retentativa a cada 30s")
+    }
+
+    private fun clearErrorWatchdog() {
+        kioskInErrorState = false
+        lastMainFrameHttpError = false
+        reloadHandler.removeCallbacks(reloadWatchdogRunnable)
     }
 
     private fun applyImmersiveMode() {
@@ -313,6 +369,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun reloadKioskUrl() {
         if (!::binding.isInitialized) return
+        clearErrorWatchdog()
         binding.webView.loadUrl(preferences.kioskUrl)
         okPressCounter.reset()
         backPressCounter.reset()
@@ -327,6 +384,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        clearErrorWatchdog()
         pinDialog?.dismiss()
         if (::binding.isInitialized) {
             binding.webView.apply {
