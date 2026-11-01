@@ -32,7 +32,7 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.btnSaveStart.setOnClickListener { saveAndStartKiosk() }
         binding.btnAndroidSettings.setOnClickListener { openAndroidSettings() }
-        binding.btnChangeDefaultLauncher.setOnClickListener { openHomeSettings() }
+        binding.btnSetDefaultLauncher.setOnClickListener { openDefaultLauncherSettings() }
     }
 
     private fun saveAndStartKiosk() {
@@ -123,12 +123,15 @@ class SettingsActivity : AppCompatActivity() {
         startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 
-    private fun openHomeSettings() {
-        val homeSettingsIntent = Intent(Settings.ACTION_HOME_SETTINGS)
+    private fun openDefaultLauncherSettings() {
         try {
-            startActivity(homeSettingsIntent)
+            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.settings_home_settings_fallback, Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this,
+                R.string.settings_set_default_launcher_fallback,
+                Toast.LENGTH_LONG
+            ).show()
             startActivity(Intent(Settings.ACTION_SETTINGS))
         }
     }

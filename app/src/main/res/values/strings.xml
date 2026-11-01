@@ -15,8 +15,10 @@
     <string name="settings_pin_recovery_hint">Dica do PIN (ex: Ano de fundação)</string>
     <string name="settings_pin_already_set">PIN já definido. Digite um novo para alterar ou deixe vazio para manter.</string>
     <string name="settings_save_start">Salvar e Iniciar Kiosk</string>
+    <string name="settings_section_system">Sistema</string>
+    <string name="settings_set_default_launcher">Definir como Launcher Padrão</string>
+    <string name="settings_set_default_launcher_fallback">Tela de launcher direta indisponível. Nas configurações, procure &quot;Tela inicial&quot; ou &quot;Aplicativos padrão&quot;.</string>
     <string name="settings_open_android">Abrir Configurações do Android</string>
-    <string name="settings_change_default_launcher">Mudar Launcher Padrão</string>
     <string name="settings_home_settings_fallback">Menu direto não suportado, abrindo configurações gerais</string>
     <string name="settings_saved">Configurações salvas</string>
     <string name="settings_no_pin_warning_message">Você está prestes a iniciar o Modo Kiosk sem um PIN. Isso afetará a segurança do painel, pois qualquer pessoa poderá acessar essas configurações. Tem certeza de que deseja continuar sem PIN?</string>
