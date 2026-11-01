@@ -25,7 +25,9 @@ class SettingsActivity : AppCompatActivity() {
             KioskPreferences.SAMPLE_FATEC_URL
         )
         binding.inputUrl.setText(preferences.kioskUrl)
-        binding.inputPin.setText(preferences.kioskPin)
+        if (preferences.isPinConfigured()) {
+            binding.inputPinLayout.helperText = getString(R.string.settings_pin_already_set)
+        }
 
         binding.btnSaveStart.setOnClickListener { saveAndStartKiosk() }
         binding.btnAndroidSettings.setOnClickListener { openAndroidSettings() }
@@ -49,26 +51,36 @@ class SettingsActivity : AppCompatActivity() {
         binding.inputPinLayout.error = null
 
         if (pin.isEmpty()) {
-            showNoPinWarningDialog(url)
+            if (preferences.isPinConfigured()) {
+                persistAndLaunchKiosk(url, keepExistingPin = true)
+            } else {
+                showNoPinWarningDialog(url)
+            }
             return
         }
 
-        persistAndLaunchKiosk(url, pin)
+        persistAndLaunchKiosk(url, keepExistingPin = false, newPin = pin)
     }
 
     private fun showNoPinWarningDialog(url: String) {
         MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_KioskLauncher_PinDialog)
             .setMessage(R.string.settings_no_pin_warning_message)
             .setPositiveButton(R.string.settings_no_pin_continue) { _, _ ->
-                persistAndLaunchKiosk(url, "")
+                persistAndLaunchKiosk(url, keepExistingPin = false, newPin = "")
             }
             .setNegativeButton(R.string.settings_no_pin_cancel, null)
             .show()
     }
 
-    private fun persistAndLaunchKiosk(url: String, pin: String) {
+    private fun persistAndLaunchKiosk(
+        url: String,
+        keepExistingPin: Boolean = false,
+        newPin: String = ""
+    ) {
         preferences.kioskUrl = url
-        preferences.kioskPin = pin
+        if (!keepExistingPin) {
+            preferences.setPinFromPlainText(newPin)
+        }
 
         Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
 
