@@ -11,6 +11,8 @@
     <string name="settings_url_hint">URL do quiosque</string>
     <string name="settings_url_helper">Ex.: %1$s</string>
     <string name="settings_pin_hint">PIN de segurança (opcional)</string>
+    <string name="settings_pin_confirm_hint">Confirmar PIN</string>
+    <string name="settings_pin_recovery_hint">Dica do PIN (ex: Ano de fundação)</string>
     <string name="settings_pin_already_set">PIN já definido. Digite um novo para alterar ou deixe vazio para manter.</string>
     <string name="settings_save_start">Salvar e Iniciar Kiosk</string>
     <string name="settings_open_android">Abrir Configurações do Android</string>
@@ -22,9 +24,11 @@
     <string name="settings_no_pin_cancel">Cancelar</string>
     <string name="error_url_required">Informe uma URL válida</string>
     <string name="error_pin_min_length">PIN deve ter pelo menos 4 dígitos</string>
+    <string name="error_pin_mismatch">Os PINs não coincidem</string>
 
     <string name="pin_dialog_title">Desbloquear quiosque</string>
     <string name="pin_dialog_message">Digite o PIN de administrador</string>
+    <string name="pin_dialog_recovery_hint">Dica: %1$s</string>
     <string name="pin_dialog_hint">PIN</string>
     <string name="pin_dialog_confirm">Confirmar</string>
     <string name="pin_dialog_cancel">Cancelar</string>

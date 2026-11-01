@@ -14,17 +14,23 @@ class KioskPreferences(context: Context) {
         get() = prefs.getString(KEY_KIOSK_URL, DEFAULT_URL).orEmpty()
         set(value) = prefs.edit { putString(KEY_KIOSK_URL, value.trim()) }
 
+    var pinHint: String
+        get() = prefs.getString(KEY_PIN_HINT, DEFAULT_PIN_HINT).orEmpty()
+        set(value) = prefs.edit { putString(KEY_PIN_HINT, value.trim()) }
+
     fun isUrlConfigured(): Boolean = kioskUrl.isNotBlank()
 
     fun isPinConfigured(): Boolean = getStoredPinHash().isNotEmpty()
 
-    fun setPinFromPlainText(plainPin: String) {
+    fun setPinFromPlainText(plainPin: String, hint: String = pinHint) {
         val trimmed = plainPin.trim()
         prefs.edit {
             if (trimmed.isEmpty()) {
                 putString(KEY_KIOSK_PIN, DEFAULT_PIN)
+                putString(KEY_PIN_HINT, DEFAULT_PIN_HINT)
             } else {
                 putString(KEY_KIOSK_PIN, hashPin(trimmed))
+                putString(KEY_PIN_HINT, hint.trim())
             }
         }
     }
@@ -61,9 +67,11 @@ class KioskPreferences(context: Context) {
         private const val PREFS_NAME = "kiosk_prefs"
         private const val KEY_KIOSK_URL = "kiosk_url"
         private const val KEY_KIOSK_PIN = "kiosk_pin"
+        private const val KEY_PIN_HINT = "pin_hint"
 
         const val DEFAULT_URL = ""
         const val DEFAULT_PIN = ""
+        const val DEFAULT_PIN_HINT = ""
 
         const val SAMPLE_FATEC_URL = "https://www.fatecsp.br/"
     }

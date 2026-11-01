@@ -25,6 +25,15 @@ object PinUnlockDialog {
 
         binding.btnPinCancel.setOnClickListener { dialog.dismiss() }
 
+        val savedHint = preferences.pinHint.trim()
+        if (savedHint.isNotEmpty()) {
+            binding.textPinRecoveryHint.visibility = android.view.View.VISIBLE
+            binding.textPinRecoveryHint.text =
+                context.getString(R.string.pin_dialog_recovery_hint, savedHint)
+        } else {
+            binding.textPinRecoveryHint.visibility = android.view.View.GONE
+        }
+
         val submit = {
             val pin = binding.inputPin.text?.toString().orEmpty()
             if (preferences.verifyPin(pin)) {

@@ -25,6 +25,7 @@ class SettingsActivity : AppCompatActivity() {
             KioskPreferences.SAMPLE_FATEC_URL
         )
         binding.inputUrl.setText(preferences.kioskUrl)
+        binding.inputPinHint.setText(preferences.pinHint)
         if (preferences.isPinConfigured()) {
             binding.inputPinLayout.helperText = getString(R.string.settings_pin_already_set)
         }
@@ -37,6 +38,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveAndStartKiosk() {
         val url = binding.inputUrl.text?.toString().orEmpty().trim()
         val pin = binding.inputPin.text?.toString().orEmpty().trim()
+        val pinConfirm = binding.inputPinConfirm.text?.toString().orEmpty().trim()
+        val pinHint = binding.inputPinHint.text?.toString().orEmpty().trim()
 
         if (url.isEmpty()) {
             binding.inputUrlLayout.error = getString(R.string.error_url_required)
@@ -49,24 +52,45 @@ class SettingsActivity : AppCompatActivity() {
             return
         }
         binding.inputPinLayout.error = null
+        binding.inputPinConfirmLayout.error = null
+
+        if (pin.isNotEmpty() && pin != pinConfirm) {
+            binding.inputPinConfirmLayout.error = getString(R.string.error_pin_mismatch)
+            Toast.makeText(this, R.string.error_pin_mismatch, Toast.LENGTH_SHORT).show()
+            return
+        }
 
         if (pin.isEmpty()) {
             if (preferences.isPinConfigured()) {
-                persistAndLaunchKiosk(url, keepExistingPin = true)
+                persistAndLaunchKiosk(
+                    url = url,
+                    keepExistingPin = true,
+                    pinHint = pinHint
+                )
             } else {
-                showNoPinWarningDialog(url)
+                showNoPinWarningDialog(url, pinHint)
             }
             return
         }
 
-        persistAndLaunchKiosk(url, keepExistingPin = false, newPin = pin)
+        persistAndLaunchKiosk(
+            url = url,
+            keepExistingPin = false,
+            newPin = pin,
+            pinHint = pinHint
+        )
     }
 
-    private fun showNoPinWarningDialog(url: String) {
+    private fun showNoPinWarningDialog(url: String, pinHint: String) {
         MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_KioskLauncher_PinDialog)
             .setMessage(R.string.settings_no_pin_warning_message)
             .setPositiveButton(R.string.settings_no_pin_continue) { _, _ ->
-                persistAndLaunchKiosk(url, keepExistingPin = false, newPin = "")
+                persistAndLaunchKiosk(
+                    url = url,
+                    keepExistingPin = false,
+                    newPin = "",
+                    pinHint = ""
+                )
             }
             .setNegativeButton(R.string.settings_no_pin_cancel, null)
             .show()
@@ -75,11 +99,14 @@ class SettingsActivity : AppCompatActivity() {
     private fun persistAndLaunchKiosk(
         url: String,
         keepExistingPin: Boolean = false,
-        newPin: String = ""
+        newPin: String = "",
+        pinHint: String = ""
     ) {
         preferences.kioskUrl = url
-        if (!keepExistingPin) {
-            preferences.setPinFromPlainText(newPin)
+        if (keepExistingPin) {
+            preferences.pinHint = pinHint
+        } else {
+            preferences.setPinFromPlainText(newPin, pinHint)
         }
 
         Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
