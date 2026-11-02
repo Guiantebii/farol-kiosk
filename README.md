@@ -6,7 +6,7 @@ inicial do dispositivo, exibe um painel web em tela cheia e permite
 proteger o acesso às configurações com um **PIN opcional**.
 
   -------------------- --------------
-  **Versão**           1.0
+  **Versão**           1.2.0
   **Android mínimo**   7.0 (API 24)
   **Orientação**       Paisagem
   -------------------- --------------
@@ -54,6 +54,10 @@ dispositivo para visualizar esse conteúdo.
     configurações.
 -   **Uso em TV Box:** interface e orientação adequadas à exibição em
     telas paisagem.
+-   **Tela de espera:** logo e indicador de carregamento enquanto o painel
+    ou a rede ficam prontos (útil após ligar a TV Box na tomada).
+-   **Recuperação automática:** novas tentativas de carga se a internet
+    ainda não estiver disponível no boot.
 
 ------------------------------------------------------------------------
 
@@ -112,6 +116,8 @@ O PIN protege o acesso à tela de configurações do aplicativo.
 -   Para ativar a proteção, informe um PIN numérico de pelo menos **4
     dígitos**.
 -   Para utilizar o aplicativo sem senha, deixe o campo em branco.
+-   **Dica do PIN (opcional):** texto de ajuda exibido na tela de
+    desbloqueio (não substitui o PIN).
 -   Guarde o PIN em local seguro para evitar a perda de acesso às
     configurações.
 
@@ -186,7 +192,9 @@ iniciar novamente o modo quiosque.
 ### Com PIN configurado
 
 O acesso às configurações exige a informação do PIN correto após a
-utilização de um dos gatilhos administrativos.
+utilização de um dos gatilhos administrativos. O PIN é armazenado apenas
+como **hash** (SHA-256), em preferências **criptografadas** no
+dispositivo.
 
 Recomenda-se manter um PIN configurado quando o dispositivo estiver
 instalado em ambientes públicos ou acessíveis a outras pessoas.
@@ -219,7 +227,13 @@ equipamento.
   ----------------------------------- -----------------------------------
   O painel não abre                   Verifique se a URL está correta e
                                       se a TV Box possui conexão com a
-                                      rede.
+                                      rede. Aguarde a tela de espera; o
+                                      app tenta de novo automaticamente.
+
+  A tela fica preta ou piscando       Normal logo após ligar na tomada
+                                      enquanto a Wi‑Fi conecta. Se
+                                      persistir, confira a URL e veja
+                                      Logcat com a tag `KioskWebView`.
 
   A tela fica branca                  Teste o endereço em outro
                                       dispositivo e confirme se o painel
@@ -243,6 +257,134 @@ equipamento.
                                       apaga o PIN, a URL e as demais
                                       preferências salvas.
   -----------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## Desenvolvimento
+
+Requisitos: **JDK 17**, Android SDK **35**.
+
+```bash
+./gradlew assembleDebug          # APK de teste
+./gradlew assembleRelease        # release (R8); assine se necessário
+```
+
+Assinatura release (opcional):
+
+1. Copie `keystore.properties.example` para `keystore.properties`.
+2. Gere ou aponte para um `.jks` e preencha senhas e alias.
+3. Rode `./gradlew assembleRelease` — o APK assinado fica em
+   `app/build/outputs/apk/release/`.
+
+Instalação via ADB:
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Logs do WebView no dispositivo:
+
+```bash
+adb logcat -s KioskWebView
+```
+
+------------------------------------------------------------------------
+
+## GitHub e releases
+
+Repositório: **https://github.com/Guiantebii/farol-kiosk**
+
+### Como o projeto está organizado
+
+| Peça | Significado |
+|------|-------------|
+| **`main`** | Branch principal — é o que deve estar no GitHub e refletir a versão “oficial”. |
+| **Branches `feature/...`** | Trabalho em andamento; quando terminar, você **mescla** em `main`. |
+| **Tag `v1.x.x`** | Marcador de versão no Git (ex.: `v1.0.0` já existe no remoto). |
+| **GitHub Release** | Página no GitHub com notas + **APK anexo** para baixar/instalar. |
+| **APK debug** | `./gradlew assembleDebug` — testes na TV Box (ADB). |
+| **APK release** | `./gradlew assembleRelease` — menor, otimizado (R8); ideal para publicar. |
+
+Versão atual no código: **1.2.0** (`versionCode` 4) em `app/build.gradle.kts`.
+
+### Fluxo para “atualizar tudo” (checklist)
+
+1. **Salvar o código no Git** (commit na branch em que você está).
+2. **Mesclar em `main`** se ainda estiver numa `feature/...`.
+3. **`git push origin main`** — GitHub fica igual ao seu PC.
+4. **Gerar o APK** (`assembleDebug` ou `assembleRelease`).
+5. **Criar tag** `v1.2.0` e enviar: `git push origin v1.2.0`.
+6. **No GitHub:** *Releases* → *Draft a new release* → escolher a tag → colar trecho do `CHANGELOG.md` → anexar o `.apk`.
+
+### Comandos (copiar e colar)
+
+Na pasta do projeto:
+
+```bash
+# Ver o que falta commitar
+git status
+
+# Commitar tudo da versão atual (ajuste a mensagem se quiser)
+git add -A
+git commit -m "$(cat <<'EOF'
+release: Farol Kiosk 1.2.0
+
+Splash de carregamento, recuperação de rede no boot, preferências criptografadas,
+validação de URL e build release otimizado.
+EOF
+)"
+
+# Trazer main para cá e mesclar (se você estava em feature/pin-recovery-and-launcher)
+git checkout main
+git merge feature/pin-recovery-and-launcher
+
+# Enviar para o GitHub
+git push origin main
+
+# Marcar versão no Git
+git tag -a v1.2.0 -m "Farol Kiosk 1.2.0"
+git push origin v1.2.0
+
+# APK de teste (não precisa de keystore)
+./gradlew assembleDebug
+# Saída: app/build/outputs/apk/debug/app-debug.apk
+
+# APK release (opcional: keystore.properties para assinar)
+./gradlew assembleRelease
+# Saída: app/build/outputs/apk/release/
+```
+
+### Assinatura do APK release (recomendado para distribuir)
+
+Sem `keystore.properties`, o Gradle gera release **não assinado** (útil só em parte dos fluxos).
+Para instalar em TV Box de clientes:
+
+```bash
+keytool -genkey -v -keystore release/farol-kiosk.jks -keyalg RSA -keysize 2048 -validity 10000 -alias farol
+cp keystore.properties.example keystore.properties
+# Edite keystore.properties com caminhos e senhas
+./gradlew assembleRelease
+```
+
+Guarde o `.jks` e as senhas em local seguro — **sem eles você não atualiza o app** com a mesma chave.
+
+### Criar a Release no site do GitHub
+
+1. Abra **Releases** no repositório.
+2. **Draft a new release** → tag **v1.2.0** (criada no passo acima).
+3. Título: `Farol Kiosk 1.2.0`.
+4. Descrição: copie a seção `[1.2.0]` do `CHANGELOG.md`.
+5. Anexe `app-debug.apk` (testes) ou `app-release.apk` (assinado).
+6. **Publish release**.
+
+### Situação típica se você “se perdeu”
+
+- Código novo só no PC, **sem commit** → passo 1 do checklist.
+- Commits numa **feature**, `main` no GitHub **atrás** → merge + push.
+- Tag **só v1.0.0** no GitHub → criar **v1.2.0** depois do push de `main`.
+- **Release** no GitHub ≠ tag: release é tag + notas + APK.
+
+Branches antigas (`feature/security-and-resilience`, etc.) podem ser apagadas no GitHub depois que tudo estiver em `main`.
 
 ------------------------------------------------------------------------
 

@@ -2,13 +2,19 @@ package com.kiosk.launcher
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import java.security.MessageDigest
 
 class KioskPreferences(context: Context) {
 
-    private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val legacyPrefs: SharedPreferences =
+        appContext.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val prefs: SharedPreferences = openPreferences(appContext)
 
     var kioskUrl: String
         get() = prefs.getString(KEY_KIOSK_URL, DEFAULT_URL).orEmpty()
@@ -63,8 +69,48 @@ class KioskPreferences(context: Context) {
     private fun isSha256Hex(value: String): Boolean =
         value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' }
 
+    private fun openPreferences(context: Context): SharedPreferences {
+        return try {
+            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+            val encrypted = EncryptedSharedPreferences.create(
+                ENCRYPTED_PREFS_NAME,
+                masterKeyAlias,
+                context,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+            migrateFromLegacyIfNeeded(encrypted)
+            encrypted
+        } catch (e: Exception) {
+            Log.w(TAG, "Preferências criptografadas indisponíveis; usando armazenamento legado", e)
+            legacyPrefs
+        }
+    }
+
+    private fun migrateFromLegacyIfNeeded(encrypted: SharedPreferences) {
+        if (encrypted.getBoolean(KEY_MIGRATED, false)) return
+
+        val hasLegacyData = legacyPrefs.all.isNotEmpty()
+        if (!hasLegacyData) {
+            encrypted.edit { putBoolean(KEY_MIGRATED, true) }
+            return
+        }
+
+        encrypted.edit {
+            putString(KEY_KIOSK_URL, legacyPrefs.getString(KEY_KIOSK_URL, DEFAULT_URL))
+            putString(KEY_KIOSK_PIN, legacyPrefs.getString(KEY_KIOSK_PIN, DEFAULT_PIN))
+            putString(KEY_PIN_HINT, legacyPrefs.getString(KEY_PIN_HINT, DEFAULT_PIN_HINT))
+            putBoolean(KEY_MIGRATED, true)
+        }
+        legacyPrefs.edit { clear() }
+    }
+
     companion object {
-        private const val PREFS_NAME = "kiosk_prefs"
+        private const val TAG = "KioskPreferences"
+        private const val LEGACY_PREFS_NAME = "kiosk_prefs"
+        private const val ENCRYPTED_PREFS_NAME = "kiosk_prefs_encrypted"
+        private const val KEY_MIGRATED = "prefs_migrated_v2"
+
         private const val KEY_KIOSK_URL = "kiosk_url"
         private const val KEY_KIOSK_PIN = "kiosk_pin"
         private const val KEY_PIN_HINT = "pin_hint"

@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -20,6 +21,10 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         preferences = KioskPreferences(this)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
         binding.inputUrlLayout.helperText = getString(
             R.string.settings_url_helper,
             KioskPreferences.SAMPLE_FATEC_URL
@@ -36,13 +41,16 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun saveAndStartKiosk() {
-        val url = binding.inputUrl.text?.toString().orEmpty().trim()
+        val rawUrl = binding.inputUrl.text?.toString().orEmpty().trim()
         val pin = binding.inputPin.text?.toString().orEmpty().trim()
         val pinConfirm = binding.inputPinConfirm.text?.toString().orEmpty().trim()
         val pinHint = binding.inputPinHint.text?.toString().orEmpty().trim()
 
-        if (url.isEmpty()) {
-            binding.inputUrlLayout.error = getString(R.string.error_url_required)
+        val url = KioskUrlValidator.normalize(rawUrl)
+        if (url == null) {
+            binding.inputUrlLayout.error = getString(
+                if (rawUrl.isEmpty()) R.string.error_url_required else R.string.error_url_invalid
+            )
             return
         }
         binding.inputUrlLayout.error = null

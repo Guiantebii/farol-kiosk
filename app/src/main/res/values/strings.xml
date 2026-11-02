@@ -25,6 +25,7 @@
     <string name="settings_no_pin_continue">Continuar sem PIN</string>
     <string name="settings_no_pin_cancel">Cancelar</string>
     <string name="error_url_required">Informe uma URL válida</string>
+    <string name="error_url_invalid">Use um endereço http ou https válido</string>
     <string name="error_pin_min_length">PIN deve ter pelo menos 4 dígitos</string>
     <string name="error_pin_mismatch">Os PINs não coincidem</string>
 
@@ -35,4 +36,7 @@
     <string name="pin_dialog_confirm">Confirmar</string>
     <string name="pin_dialog_cancel">Cancelar</string>
     <string name="pin_incorrect">PIN incorreto</string>
+
+    <string name="kiosk_loading_message">Carregando painel…</string>
+    <string name="kiosk_loading_waiting_network">Aguardando conexão…</string>
 </resources>

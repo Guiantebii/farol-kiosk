@@ -1,10 +1,18 @@
 package com.kiosk.launcher
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.GestureDetector
 import android.view.KeyEvent
@@ -35,23 +43,38 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_RELOAD_KIOSK = "extra_reload_kiosk"
         private const val WEBVIEW_LOG_TAG = "KioskWebView"
         private const val RELOAD_INTERVAL_MS = 30_000L
-        private const val ERROR_PLACEHOLDER_HTML =
-            "<html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>" +
-                "</head><body style=\"margin:0;background:#000000;\"></body></html>"
+        private const val NETWORK_RELOAD_DEBOUNCE_MS = 2_000L
+        private const val MIN_SPLASH_VISIBLE_MS = 400L
+        private const val REVEAL_FADE_MS = 220L
     }
 
     private var kioskInErrorState = false
     private var lastMainFrameHttpError = false
+    private var kioskReloadInProgress = false
+    private var pendingKioskReveal = false
+    private var kioskLoadStartedAt = 0L
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    private val connectivityManager: ConnectivityManager by lazy {
+        getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    }
+
     private val reloadHandler = Handler(Looper.getMainLooper())
-    private val reloadWatchdogRunnable = object : Runnable {
-        override fun run() {
-            if (!kioskInErrorState || !::binding.isInitialized) return
-            Log.d(WEBVIEW_LOG_TAG, "Watchdog: tentando recarregar ${preferences.kioskUrl}")
-            lastMainFrameHttpError = false
-            binding.webView.loadUrl(preferences.kioskUrl)
-            reloadHandler.postDelayed(this, RELOAD_INTERVAL_MS)
+    private val networkReloadRunnable = Runnable {
+        if (kioskInErrorState) {
+            attemptKioskReload("network")
         }
     }
+    private val reloadWatchdogRunnable = Runnable {
+        if (!kioskInErrorState || !::binding.isInitialized) return@Runnable
+        if (!hasValidatedNetwork()) {
+            scheduleWatchdogRetry()
+            return@Runnable
+        }
+        attemptKioskReload("watchdog")
+        scheduleWatchdogRetry()
+    }
+    private val revealSplashRunnable = Runnable { performRevealWithFade() }
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var preferences: KioskPreferences
@@ -81,11 +104,15 @@ class MainActivity : AppCompatActivity() {
         setupBackHandling()
         setupPinGestures()
         setupWebView(binding.webView)
+        registerNetworkRecoveryCallback()
 
         if (savedInstanceState == null) {
-            binding.webView.loadUrl(preferences.kioskUrl)
+            startInitialKioskLoad()
         } else {
             binding.webView.restoreState(savedInstanceState)
+            pendingKioskReveal = false
+            binding.kioskLoadingSplash.visibility = View.GONE
+            binding.webView.visibility = View.VISIBLE
         }
 
         if (intent.getBooleanExtra(EXTRA_RELOAD_KIOSK, false)) {
@@ -142,17 +169,30 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView(webView: WebView) {
+        webView.setBackgroundColor(Color.BLACK)
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true)
+        }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageCommitVisible(view: WebView?, url: String?) {
+                super.onPageCommitVisible(view, url)
+                if (url == null || url.startsWith("data:") || url == "about:blank") return
+                if (pendingKioskReveal && !lastMainFrameHttpError) {
+                    scheduleRevealKioskContent()
+                }
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                if (url == null || url.startsWith("data:")) return
-                if (kioskInErrorState && !lastMainFrameHttpError) {
-                    clearErrorWatchdog()
-                    Log.d(WEBVIEW_LOG_TAG, "Watchdog: página carregada com sucesso")
+                if (url == null || url.startsWith("data:") || url == "about:blank") return
+
+                kioskReloadInProgress = false
+                if (lastMainFrameHttpError || (kioskInErrorState && !pendingKioskReveal)) return
+                if (pendingKioskReveal) {
+                    scheduleRevealKioskContent()
                 }
-                lastMainFrameHttpError = false
             }
 
             override fun shouldOverrideUrlLoading(
@@ -180,11 +220,11 @@ class MainActivity : AppCompatActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request == null || error == null || !request.isForMainFrame) return
+                lastMainFrameHttpError = true
                 Log.e(
                     WEBVIEW_LOG_TAG,
                     "Erro de carregamento: ${request.url} - ${error.description}"
                 )
-                lastMainFrameHttpError = false
                 view?.let { enterKioskErrorState(it) }
             }
 
@@ -226,7 +266,6 @@ class MainActivity : AppCompatActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = true
             cacheMode = WebSettings.LOAD_DEFAULT
             loadWithOverviewMode = true
             useWideViewPort = true
@@ -235,28 +274,144 @@ class MainActivity : AppCompatActivity() {
             displayZoomControls = false
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                offscreenPreRaster = true
+            }
         }
     }
 
-    private fun enterKioskErrorState(webView: WebView) {
-        if (kioskInErrorState) return
-        kioskInErrorState = true
-        webView.loadDataWithBaseURL(
-            null,
-            ERROR_PLACEHOLDER_HTML,
-            "text/html",
-            Charsets.UTF_8.name(),
-            null
+    private fun startInitialKioskLoad() {
+        if (!hasValidatedNetwork()) {
+            enterKioskErrorState(binding.webView)
+            return
+        }
+        loadKioskUrlWithSplash(preferences.kioskUrl)
+    }
+
+    private fun showLoadingSplash(waitingForNetwork: Boolean) {
+        cancelPendingReveal()
+        binding.kioskLoadingMessage.setText(
+            if (waitingForNetwork) R.string.kiosk_loading_waiting_network
+            else R.string.kiosk_loading_message
         )
+        binding.kioskLoadingSplash.alpha = 1f
+        binding.kioskLoadingSplash.visibility = View.VISIBLE
+        binding.webView.visibility = View.INVISIBLE
+        binding.webView.alpha = 1f
+    }
+
+    private fun loadKioskUrlWithSplash(url: String) {
+        pendingKioskReveal = true
+        lastMainFrameHttpError = false
+        kioskReloadInProgress = true
+        kioskLoadStartedAt = SystemClock.elapsedRealtime()
+        showLoadingSplash(waitingForNetwork = false)
+        Log.d(WEBVIEW_LOG_TAG, "Carregando: $url")
+        binding.webView.loadUrl(url)
+    }
+
+    private fun scheduleRevealKioskContent() {
+        if (!pendingKioskReveal || lastMainFrameHttpError) return
+        reloadHandler.removeCallbacks(revealSplashRunnable)
+        val elapsed = SystemClock.elapsedRealtime() - kioskLoadStartedAt
+        val delay = (MIN_SPLASH_VISIBLE_MS - elapsed).coerceAtLeast(0L)
+        reloadHandler.postDelayed(revealSplashRunnable, delay)
+    }
+
+    private fun cancelPendingReveal() {
+        reloadHandler.removeCallbacks(revealSplashRunnable)
+    }
+
+    private fun performRevealWithFade() {
+        if (!::binding.isInitialized || !pendingKioskReveal || lastMainFrameHttpError) return
+
+        pendingKioskReveal = false
+        kioskReloadInProgress = false
+        if (kioskInErrorState) {
+            clearErrorWatchdog()
+            Log.d(WEBVIEW_LOG_TAG, "Painel carregado após recuperação")
+        }
+
+        binding.webView.visibility = View.VISIBLE
+        binding.webView.alpha = 0f
+        binding.webView.animate()
+            .alpha(1f)
+            .setDuration(REVEAL_FADE_MS)
+            .start()
+
+        binding.kioskLoadingSplash.animate()
+            .alpha(0f)
+            .setDuration(REVEAL_FADE_MS)
+            .withEndAction {
+                binding.kioskLoadingSplash.visibility = View.GONE
+                binding.kioskLoadingSplash.alpha = 1f
+            }
+            .start()
+    }
+
+    private fun enterKioskErrorState(webView: WebView) {
+        kioskInErrorState = true
+        kioskReloadInProgress = false
+        pendingKioskReveal = false
+        cancelPendingReveal()
+        webView.stopLoading()
+        showLoadingSplash(waitingForNetwork = !hasValidatedNetwork())
+        scheduleWatchdogRetry()
+        Log.w(WEBVIEW_LOG_TAG, "Aguardando rede/URL — retentativa a cada 30s")
+    }
+
+    private fun attemptKioskReload(source: String) {
+        if (!::binding.isInitialized || !kioskInErrorState) return
+        if (!hasValidatedNetwork()) {
+            showLoadingSplash(waitingForNetwork = !hasValidatedNetwork())
+            scheduleWatchdogRetry()
+            return
+        }
+        if (kioskReloadInProgress) return
+
+        Log.d(WEBVIEW_LOG_TAG, "Tentando recarregar ($source): ${preferences.kioskUrl}")
+        loadKioskUrlWithSplash(preferences.kioskUrl)
+    }
+
+    private fun scheduleWatchdogRetry() {
         reloadHandler.removeCallbacks(reloadWatchdogRunnable)
         reloadHandler.postDelayed(reloadWatchdogRunnable, RELOAD_INTERVAL_MS)
-        Log.w(WEBVIEW_LOG_TAG, "Watchdog: estado de erro — retentativa a cada 30s")
+    }
+
+    private fun scheduleNetworkReload() {
+        reloadHandler.removeCallbacks(networkReloadRunnable)
+        reloadHandler.postDelayed(networkReloadRunnable, NETWORK_RELOAD_DEBOUNCE_MS)
+    }
+
+    private fun hasValidatedNetwork(): Boolean {
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun registerNetworkRecoveryCallback() {
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                if (!kioskInErrorState || !::binding.isInitialized) return
+                scheduleNetworkReload()
+            }
+        }
+        networkCallback = callback
+        connectivityManager.registerNetworkCallback(request, callback)
     }
 
     private fun clearErrorWatchdog() {
         kioskInErrorState = false
         lastMainFrameHttpError = false
+        kioskReloadInProgress = false
         reloadHandler.removeCallbacks(reloadWatchdogRunnable)
+        reloadHandler.removeCallbacks(networkReloadRunnable)
+        cancelPendingReveal()
     }
 
     private fun applyImmersiveMode() {
@@ -281,8 +436,18 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (::binding.isInitialized) {
+            binding.webView.onResume()
+            binding.webView.resumeTimers()
             applyImmersiveMode()
         }
+    }
+
+    override fun onPause() {
+        if (::binding.isInitialized) {
+            binding.webView.onPause()
+            binding.webView.pauseTimers()
+        }
+        super.onPause()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -370,7 +535,11 @@ class MainActivity : AppCompatActivity() {
     private fun reloadKioskUrl() {
         if (!::binding.isInitialized) return
         clearErrorWatchdog()
-        binding.webView.loadUrl(preferences.kioskUrl)
+        if (!hasValidatedNetwork()) {
+            enterKioskErrorState(binding.webView)
+        } else {
+            loadKioskUrlWithSplash(preferences.kioskUrl)
+        }
         okPressCounter.reset()
         backPressCounter.reset()
         homeIntentCounter.reset()
@@ -385,6 +554,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         clearErrorWatchdog()
+        networkCallback?.let { callback ->
+            runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+        }
+        networkCallback = null
         pinDialog?.dismiss()
         if (::binding.isInitialized) {
             binding.webView.apply {
