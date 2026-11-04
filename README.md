@@ -265,128 +265,18 @@ equipamento.
 Requisitos: **JDK 17**, Android SDK **35**.
 
 ```bash
-./gradlew assembleDebug          # APK de teste
-./gradlew assembleRelease        # release (R8); assine se necessário
-```
-
-Assinatura release (opcional):
-
-1. Copie `keystore.properties.example` para `keystore.properties`.
-2. Gere ou aponte para um `.jks` e preencha senhas e alias.
-3. Rode `./gradlew assembleRelease` — o APK assinado fica em
-   `app/build/outputs/apk/release/`.
-
-Instalação via ADB:
-
-```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-Logs do WebView no dispositivo:
-
-```bash
-adb logcat -s KioskWebView
-```
-
-------------------------------------------------------------------------
-
-## GitHub e releases
-
-Repositório: **https://github.com/Guiantebii/farol-kiosk**
-
-### Como o projeto está organizado
-
-| Peça | Significado |
-|------|-------------|
-| **`main`** | Branch principal — é o que deve estar no GitHub e refletir a versão “oficial”. |
-| **Branches `feature/...`** | Trabalho em andamento; quando terminar, você **mescla** em `main`. |
-| **Tag `v1.x.x`** | Marcador de versão no Git (ex.: `v1.0.0` já existe no remoto). |
-| **GitHub Release** | Página no GitHub com notas + **APK anexo** para baixar/instalar. |
-| **APK debug** | `./gradlew assembleDebug` — testes na TV Box (ADB). |
-| **APK release** | `./gradlew assembleRelease` — menor, otimizado (R8); ideal para publicar. |
-
-Versão atual no código: **1.2.0** (`versionCode` 4) em `app/build.gradle.kts`.
-
-### Fluxo para “atualizar tudo” (checklist)
-
-1. **Salvar o código no Git** (commit na branch em que você está).
-2. **Mesclar em `main`** se ainda estiver numa `feature/...`.
-3. **`git push origin main`** — GitHub fica igual ao seu PC.
-4. **Gerar o APK** (`assembleDebug` ou `assembleRelease`).
-5. **Criar tag** `v1.2.0` e enviar: `git push origin v1.2.0`.
-6. **No GitHub:** *Releases* → *Draft a new release* → escolher a tag → colar trecho do `CHANGELOG.md` → anexar o `.apk`.
-
-### Comandos (copiar e colar)
-
-Na pasta do projeto:
-
-```bash
-# Ver o que falta commitar
-git status
-
-# Commitar tudo da versão atual (ajuste a mensagem se quiser)
-git add -A
-git commit -m "$(cat <<'EOF'
-release: Farol Kiosk 1.2.0
-
-Splash de carregamento, recuperação de rede no boot, preferências criptografadas,
-validação de URL e build release otimizado.
-EOF
-)"
-
-# Trazer main para cá e mesclar (se você estava em feature/pin-recovery-and-launcher)
-git checkout main
-git merge feature/pin-recovery-and-launcher
-
-# Enviar para o GitHub
-git push origin main
-
-# Marcar versão no Git
-git tag -a v1.2.0 -m "Farol Kiosk 1.2.0"
-git push origin v1.2.0
-
-# APK de teste (não precisa de keystore)
 ./gradlew assembleDebug
-# Saída: app/build/outputs/apk/debug/app-debug.apk
-
-# APK release (opcional: keystore.properties para assinar)
-./gradlew assembleRelease
-# Saída: app/build/outputs/apk/release/
-```
-
-### Assinatura do APK release (recomendado para distribuir)
-
-Sem `keystore.properties`, o Gradle gera release **não assinado** (útil só em parte dos fluxos).
-Para instalar em TV Box de clientes:
-
-```bash
-keytool -genkey -v -keystore release/farol-kiosk.jks -keyalg RSA -keysize 2048 -validity 10000 -alias farol
-cp keystore.properties.example keystore.properties
-# Edite keystore.properties com caminhos e senhas
 ./gradlew assembleRelease
 ```
 
-Guarde o `.jks` e as senhas em local seguro — **sem eles você não atualiza o app** com a mesma chave.
+Assinatura release: copie `keystore.properties.example` para `keystore.properties` e configure o keystore antes de `assembleRelease`.
 
-### Criar a Release no site do GitHub
+Saída dos APKs: `app/build/outputs/apk/debug/` e `app/build/outputs/apk/release/`.
 
-1. Abra **Releases** no repositório.
-2. **Draft a new release** → tag **v1.2.0** (criada no passo acima).
-3. Título: `Farol Kiosk 1.2.0`.
-4. Descrição: copie a seção `[1.2.0]` do `CHANGELOG.md`.
-5. Anexe `app-debug.apk` (testes) ou `app-release.apk` (assinado).
-6. **Publish release**.
+Logcat (WebView): `adb logcat -s KioskWebView`
 
-### Situação típica se você “se perdeu”
-
-- Código novo só no PC, **sem commit** → passo 1 do checklist.
-- Commits numa **feature**, `main` no GitHub **atrás** → merge + push.
-- Tag **só v1.0.0** no GitHub → criar **v1.2.0** depois do push de `main`.
-- **Release** no GitHub ≠ tag: release é tag + notas + APK.
-
-Branches antigas (`feature/security-and-resilience`, etc.) podem ser apagadas no GitHub depois que tudo estiver em `main`.
+Histórico de versões: [CHANGELOG.md](CHANGELOG.md).
 
 ------------------------------------------------------------------------
 
-**Farol Kiosk** --- solução para exibição de painéis web em dispositivos
-Android.
+**Farol Kiosk** — solução para exibição de painéis web em dispositivos Android.

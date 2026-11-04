@@ -161,7 +161,6 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
-        // Root + splash: admin swipe must work even while WebView is hidden loading.
         val forwardTouch = View.OnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
             false
@@ -387,10 +386,6 @@ class MainActivity : AppCompatActivity() {
         reloadHandler.postDelayed(networkReloadRunnable, NETWORK_RELOAD_DEBOUNCE_MS)
     }
 
-    /**
-     * TV Boxes often never report NET_CAPABILITY_VALIDATED even with working Wi‑Fi.
-     * Requiring it can leave the kiosk stuck on the splash forever — use INTERNET only.
-     */
     private fun hasValidatedNetwork(): Boolean {
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
@@ -403,7 +398,6 @@ class MainActivity : AppCompatActivity() {
             .build()
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                // Callbacks may arrive off the main thread.
                 reloadHandler.post {
                     if (!kioskInErrorState || !::binding.isInitialized) return@post
                     scheduleNetworkReload()
@@ -478,7 +472,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        // BACK is handled only by OnBackPressedCallback to avoid double-counting.
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                 if (event?.repeatCount == 0) {

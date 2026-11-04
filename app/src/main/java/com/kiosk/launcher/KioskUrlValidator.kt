@@ -4,10 +4,6 @@ import android.net.Uri
 
 object KioskUrlValidator {
 
-    /**
-     * Normaliza e valida URLs http/https para uso no WebView.
-     * Adiciona https:// quando o esquema estiver ausente.
-     */
     fun normalize(input: String): String? {
         var candidate = input.trim()
         if (candidate.isEmpty()) return null
